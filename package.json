@@ -1,0 +1,16 @@
+{
+  "name": "itach",
+  "version": "0.0.1",
+  "description": "Module to connect to Global Cache iTach devices and send IR strings",
+  "main": "itach.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "node",
+    "itach"
+  ],
+  "dependencies": {
+      "async":  "*"
+  }
+}
