@@ -6,10 +6,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tillbaks/node-itach"
+  },
   "keywords": [
     "node",
     "itach"
   ],
+  "license": "MIT License",
+  "bugs": {
+    "url": "https://github.com/tillbaks/node-itach/issues"
+  },
   "dependencies": {
       "async":  "*"
   }
