@@ -45,9 +45,9 @@ function ITACH() {
     self.is_connected = false;
 
     config = {
-        "port": 4998,
-        "reconnect": true, // Reconnect if disconnected
-        "reconnect_sleep": 5000 // Time between reconnection attempts
+        port: 4998,
+        reconnect: true,      // Reconnect if disconnected
+        reconnect_sleep: 5    // Time in seconds between reconnection attempts
     };
 
     self.close = self.disconnect = function () {
@@ -62,10 +62,10 @@ function ITACH() {
         var connection_properties;
 
         if (typeof options !== 'undefined') {
-            config.host = options.host || defaults.host;
-            config.port = options.port || defaults.port;
-            config.reconnect = options.reconnect || defaults.reconnect;
-            config.reconnect_sleep = options.reconnect_sleep || defaults.reconnect_sleep;
+            config.host = options.host || config.host;
+            config.port = options.port || config.port;
+            config.reconnect = options.reconnect || config.reconnect;
+            config.reconnect_sleep = options.reconnect_sleep || config.reconnect_sleep;
         }
 
         // If no host is configured we connect to the first device to answer
@@ -108,7 +108,7 @@ function ITACH() {
 
             if (config.reconnect) {
 
-                setTimeout(self.connect, config.reconnect_sleep);
+                setTimeout(self.connect, config.reconnect_sleep * 1000);
             }
         });
 
@@ -119,14 +119,14 @@ function ITACH() {
 
         itach.on('data', function (data) {
 
-            var splitted, id, result;
+            var parts, id, result;
 
             data = data.toString().replace(/[\n\r]$/, "");
 
             self.emit("debug", "received data: " + data);
 
-            splitted = data.split(',');
-            id = splitted[2];
+            parts = data.split(',');
+            id = parts[2];
 
             if (requests[id] === undefined) {
                 self.emit("error", "request_id " + id + " does not exist");
@@ -134,11 +134,11 @@ function ITACH() {
             }
 
             // result is true only when completeir received
-            result = (splitted[0] === 'completeir');
+            result = (parts[0] === 'completeir');
 
-            if (splitted[0].match(/^ERR/)) {
+            if (parts[0].match(/^ERR/)) {
 
-                self.emit("error", "itach error " + splitted[1] + ": " + ERRORCODES[splitted[1]]);
+                self.emit("error", "itach error " + parts[1] + ": " + ERRORCODES[parts[1]]);
             }
 
             if (typeof requests[id].callback === 'function') {
@@ -163,7 +163,7 @@ function ITACH() {
 
         if (argv === 1 && typeof args[0] === 'function') {
             callback = args[0];
-        } else if(argv === 2 && typeof args[1] === 'function') {
+        } else if (argv === 2 && typeof args[1] === 'function') {
             options = args[0];
             callback = args[1];
         } else {
