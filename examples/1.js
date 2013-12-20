@@ -10,11 +10,11 @@ itach.on("connect", function() {
                 "module": 3
             }
         },
-        function(result) {
+        function(err, result) {
             console.log(result);
             process.exit(0);
         }
     );
 })
 
-itach.connect();
+itach.connect({host: "10.0.0.4"});

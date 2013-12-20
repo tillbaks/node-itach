@@ -141,10 +141,7 @@ self.connect = function (options) {
 
         if (typeof requests[id].callback === 'function') {
 
-            requests[id].callback({
-                'result': result,
-                'data': data
-            });
+            requests[id].callback(!result, data);
         }
         delete requests[id];
     });
@@ -174,7 +171,7 @@ self.discover = function () {
     function close() {
         server.close();
         self.emit("debug", util.format("Discovered following hosts on network: %j", result));
-        callback(result);
+        callback(false, result);
     }
 
     server = dgram.createSocket("udp4");
@@ -228,10 +225,7 @@ send_queue = async.queue(function (data, callback) {
         self.emit("debug", 'data sent: ' + data);
         itach.write(data + "\r\n");
         if (typeof callback === 'function') {
-            callback({
-                "result": true,
-                "msg": ""
-            });
+            callback(false);
         }
         return;
     }
@@ -239,10 +233,7 @@ send_queue = async.queue(function (data, callback) {
     self.emit("error", "Not connected - Can not send data");
     self.emit("debug", data);
     if (typeof callback === 'function') {
-        callback({
-            "result": false,
-            "msg": ""
-        });
+        callback(true);
     }
     return;
 
@@ -288,9 +279,9 @@ self.send = function (input, callback) {
     }
     data = parts.join(',');
 
-    send_queue.push(data, function (res) {
+    send_queue.push(data, function (err) {
 
-        if (res.result) {
+        if (!err) {
 
             requests[id] = {
                 'id': id,
@@ -300,10 +291,7 @@ self.send = function (input, callback) {
 
         } else {
 
-            callback({
-                "result": false,
-                "msg": res.msg
-            });
+            callback(true);
         }
     });
 
