@@ -35,8 +35,8 @@ var self, itach, send_queue, config,
         '026': 'Invalid parity setting.',
         '027': 'Settings are locked'
     },
-    requests = {},
-    request_id = 0;
+    request_id = 0,
+    queue;
 
 module.exports = self = new events.EventEmitter();
 
@@ -44,6 +44,7 @@ self.is_connected = false;
 
 config = {
     port: 4998,
+    send_delay: 100,        // Delay between transmitting IR so we don't get too many busyIR responses
     reconnect: false,       // Reconnect if disconnected
     reconnect_sleep: 5      // Time in seconds between reconnection attempts
 };
@@ -60,10 +61,11 @@ self.connect = function (options) {
     var connection_properties;
 
     if (typeof options !== 'undefined') {
-        if (typeof options.host !== 'undefined') { config.host = options.host; }
-        if (typeof options.port !== 'undefined') { config.port = options.port; }
-        if (typeof options.reconnect !== 'undefined') { config.reconnect = options.reconnect; }
-        if (typeof options.reconnect_sleep !== 'undefined') { config.reconnect_sleep = options.reconnect_sleep; }
+        config.host = options.host || config.host;
+        config.port = options.port || config.port;
+        config.reconnect = options.reconnect || config.reconnect;
+        config.reconnect_sleep = options.reconnect_sleep || config.reconnect_sleep;
+        config.send_delay = options.send_delay || config.send_delay;
     }
 
     // If no host is configured we connect to the first device to answer
@@ -86,8 +88,15 @@ self.connect = function (options) {
     self.emit("debug", 'Connecting to ' + config.host + ':' + config.port);
 
     if (typeof itach === 'undefined') {
+
         itach = net.connect(connection_properties);
+
+        queue = new MessageQueue({
+            send_delay: config.send_delay
+        });
+
     } else {
+        
         itach.connect(connection_properties);
     }
 
@@ -126,24 +135,20 @@ self.connect = function (options) {
         parts = data.split(',');
         id = parts[2];
 
-        if (requests[id] === undefined) {
-            self.emit("error", "request_id " + id + " does not exist");
-            return;
+        if (parts[0] === 'completeir') {
+            queue.onComplete(id);
         }
 
-        // result is true only when completeir received
-        result = (parts[0] === 'completeir');
+        if (parts[0] === 'busyIR') {
 
-        if (parts[0].match(/^ERR/)) {
+            // This shound not happen if this script is the only device connected to the itach
+            return;
+
+        } else if (parts[0].match(/^ERR/)) {
 
             self.emit("error", "itach error " + parts[1] + ": " + ERRORCODES[parts[1]]);
+            queue.onError();
         }
-
-        if (typeof requests[id].callback === 'function') {
-
-            requests[id].callback(!result, data);
-        }
-        delete requests[id];
     });
 
 };
@@ -218,27 +223,6 @@ self.discover = function () {
     });
 };
 
-send_queue = async.queue(function (data, callback) {
-
-    if (self.is_connected) {
-
-        self.emit("debug", 'data sent: ' + data);
-        itach.write(data + "\r\n");
-        if (typeof callback === 'function') {
-            callback(false);
-        }
-        return;
-    }
-
-    self.emit("error", "Not connected - Can not send data");
-    self.emit("debug", data);
-    if (typeof callback === 'function') {
-        callback(true);
-    }
-    return;
-
-}, 1);
-
 /*
 The allmighty send function
 ----------------------------------
@@ -253,18 +237,19 @@ callback will be called when response is received
 */
 self.send = function (input, callback) {
 
-    var id, data, parts, options;
+    var id, data, parts, options = {};
 
     request_id += 1;
     id = request_id;
 
     if (typeof input === 'object') {
 
-        options = input.options || {};
+        options = input.options || options;
         data = input.ir;
 
     } else {
 
+        options = {};
         data = input;
     }
 
@@ -279,20 +264,97 @@ self.send = function (input, callback) {
     }
     data = parts.join(',');
 
-    send_queue.push(data, function (err) {
+    // Add message to the queue
+    queue.push({
+        'id': id,
+        'data': data,
+        'callback': callback
+    });
+};
 
-        if (!err) {
+function MessageQueue (options) {
 
-            requests[id] = {
-                'id': id,
-                'data': data,
-                'callback': callback
-            };
+    var q = {},
+        message_queue = [],
+        is_transmitting = 0;
+
+    // Remove message from queue with this id
+    function queueRemove (id, index) {
+
+        id = parseInt(id, 10);
+        if (id === is_transmitting) {
+
+            is_transmitting = 0;
+        }
+
+        if (index) {
+
+            message_queue.splice(index, 1);
 
         } else {
 
-            callback(true);
+            message_queue.forEach(function (item, index, message_queue) {
+                if (item.id === id) {
+                    message_queue.splice(index, 1);
+                }
+            });
         }
-    });
+    }
 
-};
+    // Remove a few seconds old queue items since it should not take that long to get a response
+    function queueRemoveOld () {
+        var queue_items = message_queue.length;
+
+        message_queue.forEach(function (item, index, message_queue) {
+            if (item.added < Date.now() - (4 * 1000)) {
+                queueRemove(item.id, index);
+                queue_items -= 1;
+            }
+        });
+
+        queueSend();
+        if (queue_items > 0) {
+            setTimeout(queueRemoveOld, config.send_delay);
+        }
+    }
+
+    // Sends first message in queue
+    function queueSend () {
+
+        if (self.is_connected && is_transmitting === 0 && message_queue.length > 0) {
+
+            var obj = message_queue.shift();
+            is_transmitting = obj.id;
+            self.emit("debug", 'sending data: ' + obj.data);
+            
+            itach.write(obj.data + "\r\n");
+            obj.callback(false);
+        }
+        return;
+    }
+
+    // Call this when completedir is received
+    q.onComplete = function (id) {
+
+        // Delay is required if you want to be able to send multiple commands quickly one after the other
+        setTimeout(function () {
+            queueRemove(id);
+            queueSend();
+        }, options.send_delay);
+    }
+
+    // Call this when error is received
+    q.onError = function () {
+        queueRemoveOld();
+    }
+
+    // Add message to queue
+    q.push = function (obj) {
+        obj.added = Date.now();
+        message_queue.push(obj);
+
+        queueSend();
+    }
+
+    return q;
+}
