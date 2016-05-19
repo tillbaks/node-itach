@@ -1,0 +1,41 @@
+{
+  "port": 4998,
+  "send_timeout": "1000",
+  
+  "send_keep_alive": "4s",
+  "send_delay": "2s",
+  "reconnect": false,
+  "reconnect_sleep": "5s",
+  "module": "1:3",
+  "repeat": 1,
+
+  "ERRORCODES": {
+      "001": "Invalid command. Command not found.",
+      "002": "Invalid module address (does not exist).",
+      "003": "Invalid connector address (does not exist).",
+      "004": "Invalid ID value.",
+      "005": "Invalid frequency value.",
+      "006": "Invalid repeat value.",
+      "007": "Invalid offset value.",
+      "008": "Invalid pulse count.",
+      "009": "Invalid pulse data.",
+      "010": "Uneven amount of <on|off> statements.",
+      "011": "No carriage return found.",
+      "012": "Repeat count exceeded.",
+      "013": "IR command sent to input connector.",
+      "014": "Blaster command sent to non-blaster connector.",
+      "015": "No carriage return before buffer full.",
+      "016": "No carriage return.",
+      "017": "Bad command syntax.",
+      "018": "Sensor command sent to non-input connector.",
+      "019": "Repeated IR transmission failure.",
+      "020": "Above designated IR <on|off> pair limit.",
+      "021": "Symbol odd boundary.",
+      "022": "Undefined symbol.",
+      "023": "Unknown option.",
+      "024": "Invalid baud rate setting.",
+      "025": "Invalid flow control setting.",
+      "026": "Invalid parity setting.",
+      "027": "Settings are locked"
+  }
+}

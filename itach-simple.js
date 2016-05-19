@@ -1,36 +1,31 @@
 /*jslint node:true white:true */
 "use strict";
 
-var net = require('net');
-var async = require('async');
-var config = require('./config');
-var events = require('events');
+var net = require("net");
+var async = require("async");
+var config = require("./config");
+var events = require("events");
 var emitter = new events.EventEmitter();
 var connection;
 
-function log(type, message) {
-  emitter.emit(type, message);
-}
-
 var command_queue = async.queue(function (data, callback) {
 
-  var timeout, onData;
+  var timeout, error;
 
-  onData = function onData(data) {
+  function onData(data) {
 
     clearTimeout(timeout);
-    callback(undefined, data.replace(/[\n\r]$/, ""));
-  };
+    error = (data.startsWith("ERR")) ? config.ERRORCODES[data.slice(-4, -1)] : undefined;
+    callback(error, data);
+  }
 
-  connection.write(data + "\r\n");
+  connection.write(data);
   connection.once("data", onData);
 
   timeout = setTimeout(function () {
 
-    var error = new Error("No response received from server within timeout for command: " + data);
     connection.removeListener("data", onData);
-    log("error", error);
-    callback(error);
+    callback(new Error("No response within timeout period."));
 
   }, config.send_timeout);
 }, 1);
@@ -42,44 +37,36 @@ function close() {
   connection.destroy();
 }
 
-function connect(object) {
+function connect(new_config) {
 
-  if (typeof object === "object") {
-    Object.keys(object).forEach(function (key) {
-      config[key] = object[key];
-    });
+  if (typeof new_config === "object") {
+    config = Object.assign(config, new_config);
   }
 
   if (connection === undefined) {
 
-    log("debug","Connecting to " + config.host + ":" + config.port);
-
     connection = net.connect({ host: config.host, port: config.port});
-    connection.setEncoding('utf8');
+    connection.setEncoding("utf8");
 
-    connection.on('connect', function onConnect() {
+    connection.on("connect", function onConnect() {
 
-      log("debug","Connected to " + config.host + ":" + config.port + " successfully");
       emitter.emit("connect");
       command_queue.resume();
     });
 
-    connection.on('close', function onClose() {
+    connection.on("close", function onClose() {
 
-      log("debug","Connection to " + config.host + ":" + config.port + " closed");
       command_queue.pause();
       emitter.emit("close");
     });
 
-    connection.on('error', function onError(err) {
+    connection.on("error", function onError(err) {
 
       command_queue.pause();
-      log('error', new Error(err));
+      emitter.emit("error", new Error(err));
     });
 
   } else if (connection.remoteAddress === undefined) {
-
-    log("debug","Re-connecting to " + config.host + ":" + config.port);
 
     connection.connect({ host: config.host, port: config.port});
   }
@@ -87,12 +74,18 @@ function connect(object) {
 
 function send(data, callback) {
 
-  log("debug", 'Queueing data to be sent: ' + data);
+  if (!data.endsWith("\r\n")) {
+    data = data + "\r\n";
+  }
 
   command_queue.push(data, callback);
 }
 
-emitter.send = send;
-emitter.connect = connect;
-emitter.close = close;
-module.exports = emitter;
+module.exports = {
+  send: send,
+  connect: connect,
+  close: close,
+  on: function (event, callback) {
+    emitter.on(event, callback);
+  }
+};
