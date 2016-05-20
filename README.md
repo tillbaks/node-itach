@@ -1,13 +1,20 @@
 node-itach
 ==========
 
-Node.js module to send commands to GlobalCache iTach devices.
+Node.js module to send commands to GlobalCache iTach devices. Only testing with IP2IR device but it should work with any of the itach devices.
+
+Installation
+-----
+
+```
+npm install itach --save
+```
 
 Example
 -----
 
 ```js
-var itach = require("./itach");
+var itach = require("itach");
 
 itach.on("connect", function () {
   console.log("Connected to itach");
