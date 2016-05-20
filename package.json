@@ -1,6 +1,6 @@
 {
   "name": "itach",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Module to connect to Global Cache iTach devices and send IR strings",
   "main": "itach.js",
   "scripts": {
@@ -12,7 +12,8 @@
   },
   "keywords": [
     "node",
-    "itach"
+    "itach",
+    "globalcache"
   ],
   "license": "MIT License",
   "bugs": {
