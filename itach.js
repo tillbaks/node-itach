@@ -1,4 +1,3 @@
-/*jslint node:true indent:2*/
 "use strict";
 
 var itach = require("./itach-core.js");
