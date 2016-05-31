@@ -9,26 +9,28 @@ var socket;
 
 var command_queue = async.queue(function (data, callback) {
 
-  var timeout;
+  var onData = (function () {
 
-  function onData(data) {
+    var expire = setTimeout(function () {
 
-    clearTimeout(timeout);
-    callback(
-      (data.startsWith("ERR")) ? config.ERRORCODES[data.slice(-4, -1)] : undefined,
-      data.slice(0, -1)
-    );
-  }
+      socket.removeListener("data", onData);
+      callback(new Error("No response within timeout period."));
+
+    }, config.send_timeout);
+
+    return function (data) {
+
+      clearTimeout(expire);
+      callback(
+        (data.startsWith("ERR")) ? config.ERRORCODES[data.slice(-4, -1)] : undefined,
+        data.slice(0, -1)
+      );
+    };
+
+  }());
 
   socket.write(data);
   socket.once("data", onData);
-
-  timeout = setTimeout(function () {
-
-    socket.removeListener("data", onData);
-    callback(new Error("No response within timeout period."));
-
-  }, config.send_timeout);
 
 }, 1);
 command_queue.pause();
