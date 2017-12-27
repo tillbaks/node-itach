@@ -1,10 +1,10 @@
 {
   "name": "itach",
   "version": "2.0.0",
-  "description": "Module to connect to Global Cache iTach devices and send IR strings",
+  "description": "Simple Node.js module to send commands to GlobalCache iTach devices. Should handle reconnection (if connection lost), resending (on busyIR), etc.. but not abstract away the iTach API.",
   "main": "src/itach.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "standard && ava"
   },
   "repository": {
     "type": "git",
