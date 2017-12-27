@@ -1,10 +1,13 @@
 {
-  "port": 4998,
-  "send_timeout": "1000",
-
-  "reconnect": false,
-  "reconnect_sleep": "3000",
-
+  "options": {
+    "host": null,
+    "port": 4998,
+    "sendTimeout": 500,
+    "retryInterval": 99,
+    "connectionTimeout": 3000,
+    "reconnect": false,
+    "reconnectInterval": 3000
+  },
   "ERRORCODES": {
       "001": "Invalid command. Command not found.",
       "002": "Invalid module address (does not exist).",
