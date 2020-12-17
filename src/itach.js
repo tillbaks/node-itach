@@ -3,7 +3,7 @@ const { EventEmitter } = require("events");
 const itach = new EventEmitter();
 const { options, ERRORCODES } = require("./config");
 const { createQueue } = require("./utils");
-let socket;
+let socket, reconnectionTimer;
 
 const queue = createQueue(
   (data) =>
@@ -38,7 +38,8 @@ itach.close = (opts) => {
   queue.pause();
   socket.destroy();
   if (options.reconnect) {
-    setTimeout(itach.connect, options.reconnectInterval);
+    if (reconnectionTimer) clearTimeout(reconnectionTimer);
+    reconnectionTimer = setTimeout(itach.connect, options.reconnectInterval);
   }
 };
 
@@ -46,7 +47,16 @@ itach.connect = (opts) => {
   itach.setOptions(opts);
 
   const connectionTimeout = setTimeout(() => {
-    setImmediate(() => socket.destroy("Connection timeout."));
+    setImmediate(() => {
+      socket.destroy("Connection timeout.");
+      if (options.reconnect) {
+        if (reconnectionTimer) clearTimeout(reconnectionTimer);
+        reconnectionTimer = setTimeout(
+          itach.connect,
+          options.reconnectInterval
+        );
+      }
+    });
   }, options.connectionTimeout);
 
   if (socket === undefined) {

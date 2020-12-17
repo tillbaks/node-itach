@@ -4,7 +4,7 @@ const itach = require("../");
 
 test.beforeEach.cb((t) => {
   itach.setOptions({
-    host: "10.0.0.2",
+    host: "192.168.1.25",
     port: 4998,
     reconnect: true,
     reconnectSleep: 1000,
@@ -49,11 +49,34 @@ test.serial.cb("connection times out", (t) => {
   itach.on("connect", connectFunc);
   itach.on("error", errorFunc);
 
-  itach.connect({ connectionTimeout: 10 });
+  itach.connect({
+    host: "192.168.1.222",
+    connectionTimeout: 100,
+    reconnect: false,
+  });
 
   setTimeout(() => {
     t.is(connectFunc.callCount, 0);
     t.is(errorFunc.callCount, 1);
+    t.is(errorFunc.getCall(0).args[0].message, "Connection timeout.");
+    t.end();
+  }, 10000);
+});
+
+test.serial.cb("reconnects after connection times out", (t) => {
+  t.plan(3);
+
+  const connectFunc = sinon.spy();
+  const errorFunc = sinon.spy();
+
+  itach.on("connect", connectFunc);
+  itach.on("error", errorFunc);
+
+  itach.connect({ host: "192.168.1.222", connectionTimeout: 100 });
+
+  setTimeout(() => {
+    t.is(connectFunc.callCount, 0);
+    t.assert(errorFunc.callCount > 2);
     t.is(errorFunc.getCall(0).args[0].message, "Connection timeout.");
     t.end();
   }, 10000);
@@ -79,7 +102,9 @@ test.serial.cb("error when sending invalid sendir commands", (t) => {
   itach.connect();
 
   itach.on("connect", async () => {
-    const error = await t.throwsAsync(itach.send("sendir:"), { instanceOf: Error });
+    const error = await t.throwsAsync(itach.send("sendir:"), {
+      instanceOf: Error,
+    });
     t.is(error.message, "Invalid command. Command not found.");
     t.end();
   });
