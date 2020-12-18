@@ -3,23 +3,28 @@ const { EventEmitter } = require("events");
 const itach = new EventEmitter();
 const { options, ERRORCODES } = require("./config");
 const { createQueue } = require("./utils");
-let socket;
+let socket, reconnectionTimer;
 
 const queue = createQueue(
-  (data) =>
+  (message) =>
     new Promise((resolve, reject) => {
+      let response = "";
       socket.removeAllListeners("data");
-      socket.on("data", (response) => {
+      socket.on("data", (data) => {
+        response += data;
+        const responseEndIndex = response.lastIndexOf("\r");
+        if (responseEndIndex === -1) return; // Message not finished
+
         if (response.startsWith("ERR_")) {
-          const errorCode = response.slice(-4, -1);
+          const errorCode = response.substring(responseEndIndex - 3, responseEndIndex);
           reject(new Error(ERRORCODES[errorCode]));
         } else if (response.startsWith("busyIR")) {
-          setTimeout(() => socket.write(data), options.retryInterval);
+          setTimeout(() => socket.write(message), options.retryInterval);
         } else {
-          resolve(response.slice(0, -1));
+          resolve(response.substring(0, responseEndIndex));
         }
       });
-      socket.write(data);
+      socket.write(message);
     }),
   1
 );
@@ -38,7 +43,8 @@ itach.close = (opts) => {
   queue.pause();
   socket.destroy();
   if (options.reconnect) {
-    setTimeout(itach.connect, options.reconnectInterval);
+    if (reconnectionTimer) clearTimeout(reconnectionTimer);
+    reconnectionTimer = setTimeout(itach.connect, options.reconnectInterval);
   }
 };
 
@@ -46,7 +52,16 @@ itach.connect = (opts) => {
   itach.setOptions(opts);
 
   const connectionTimeout = setTimeout(() => {
-    setImmediate(() => socket.destroy("Connection timeout."));
+    setImmediate(() => {
+      socket.destroy("Connection timeout.");
+      if (options.reconnect) {
+        if (reconnectionTimer) clearTimeout(reconnectionTimer);
+        reconnectionTimer = setTimeout(
+          itach.connect,
+          options.reconnectInterval
+        );
+      }
+    });
   }, options.connectionTimeout);
 
   if (socket === undefined) {
@@ -75,7 +90,7 @@ itach.connect = (opts) => {
 
 itach.send = (data) => {
   return queue.push(
-    data.includes("\r") ? data : data + "\r",
+    data.endsWith("\r") ? data : data + "\r",
     options.sendTimeout
   );
 };
