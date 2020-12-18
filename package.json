@@ -1,6 +1,6 @@
 {
   "name": "itach",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Simple Node.js module to send commands to GlobalCache iTach devices. Should handle reconnection (if connection lost), resending (on busyIR), etc.. but not abstract away the iTach API.",
   "main": "src/itach.js",
   "scripts": {
@@ -14,7 +14,12 @@
   "keywords": [
     "node",
     "itach",
-    "globalcache"
+    "globalcache",
+    "ip2ir",
+    "wf2ir",
+    "infrared",
+    "ir",
+    "automation"
   ],
   "license": "MIT License",
   "bugs": {

@@ -6,20 +6,25 @@ const { createQueue } = require("./utils");
 let socket, reconnectionTimer;
 
 const queue = createQueue(
-  (data) =>
+  (message) =>
     new Promise((resolve, reject) => {
+      let response = "";
       socket.removeAllListeners("data");
-      socket.on("data", (response) => {
+      socket.on("data", (data) => {
+        response += data;
+        const responseEndIndex = response.lastIndexOf("\r");
+        if (responseEndIndex === -1) return; // Message not finished
+
         if (response.startsWith("ERR_")) {
-          const errorCode = response.slice(-4, -1);
+          const errorCode = response.substring(responseEndIndex - 3, responseEndIndex);
           reject(new Error(ERRORCODES[errorCode]));
         } else if (response.startsWith("busyIR")) {
-          setTimeout(() => socket.write(data), options.retryInterval);
+          setTimeout(() => socket.write(message), options.retryInterval);
         } else {
-          resolve(response.slice(0, -1));
+          resolve(response.substring(0, responseEndIndex));
         }
       });
-      socket.write(data);
+      socket.write(message);
     }),
   1
 );
@@ -85,7 +90,7 @@ itach.connect = (opts) => {
 
 itach.send = (data) => {
   return queue.push(
-    data.includes("\r") ? data : data + "\r",
+    data.endsWith("\r") ? data : data + "\r",
     options.sendTimeout
   );
 };
